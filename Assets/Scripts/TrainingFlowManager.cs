@@ -9,17 +9,19 @@ public class TrainingFlowManager : MonoBehaviour
         PPE,
         FireExtinguisher,
         HazardQuiz,
+        ChemicalExperiment,  // NEW: Scenario 4
         Complete
     }
     
     [Header("Current State")]
     public TrainingScenario currentScenario = TrainingScenario.PPE;
-    private bool scenarioCompleted = false; // NEW: Prevents multiple completions
+    private bool scenarioCompleted = false;
     
     [Header("Scenario GameObjects")]
     public GameObject ppeArea;
     public GameObject fireArea;
     public GameObject quizArea;
+    public GameObject chemExperimentArea;  // NEW: Drag ChemicalExperimentStation here
     
     [Header("UI")]
     public TextMeshProUGUI instructionText;
@@ -28,49 +30,53 @@ public class TrainingFlowManager : MonoBehaviour
     [Header("Managers")]
     public PPEManager ppeManager;
     public HazardQuiz hazardQuiz;
+    public ExperimentUIManager experimentUIManager;  // NEW: Drag ExperimentUIManager here
     
     private int totalScore = 0;
     private bool hasAddedPPEScore = false;
     private bool hasAddedFireScore = false;
     private bool hasAddedQuizScore = false;
+    private bool hasAddedChemScore = false;  // NEW
     
     void Start()
-{
-    // Check if specific scenario was selected from menu
-    int selectedScenario = PlayerPrefs.GetInt("StartScenario", 0);
-    
-    if (selectedScenario == 1)
     {
-        // Start at PPE scenario
-        Debug.Log("Starting directly at PPE scenario");
-        StartScenario(TrainingScenario.PPE);
-        PlayerPrefs.DeleteKey("StartScenario");
+        int selectedScenario = PlayerPrefs.GetInt("StartScenario", 0);
+        
+        if (selectedScenario == 1)
+        {
+            Debug.Log("Starting directly at PPE scenario");
+            StartScenario(TrainingScenario.PPE);
+            PlayerPrefs.DeleteKey("StartScenario");
+        }
+        else if (selectedScenario == 2)
+        {
+            Debug.Log("Starting directly at Fire scenario");
+            StartScenario(TrainingScenario.FireExtinguisher);
+            PlayerPrefs.DeleteKey("StartScenario");
+        }
+        else if (selectedScenario == 3)
+        {
+            Debug.Log("Starting directly at Quiz scenario");
+            StartScenario(TrainingScenario.HazardQuiz);
+            PlayerPrefs.DeleteKey("StartScenario");
+        }
+        else if (selectedScenario == 4)
+        {
+            // NEW: Start directly at Chemical Experiment
+            Debug.Log("Starting directly at Chemical Experiment scenario");
+            StartScenario(TrainingScenario.ChemicalExperiment);
+            PlayerPrefs.DeleteKey("StartScenario");
+        }
+        else
+        {
+            // Full training from beginning
+            Debug.Log("Starting full training from PPE");
+            StartScenario(TrainingScenario.PPE);
+        }
     }
-    else if (selectedScenario == 2)
-    {
-        // Start at Fire scenario
-        Debug.Log("Starting directly at Fire scenario");
-        StartScenario(TrainingScenario.FireExtinguisher);
-        PlayerPrefs.DeleteKey("StartScenario");
-    }
-    else if (selectedScenario == 3)
-    {
-        // Start at Quiz scenario
-        Debug.Log("Starting directly at Quiz scenario");
-        StartScenario(TrainingScenario.HazardQuiz);
-        PlayerPrefs.DeleteKey("StartScenario");
-    }
-    else
-    {
-        // Start full training from beginning
-        Debug.Log("Starting full training from PPE");
-        StartScenario(TrainingScenario.PPE);
-    }
-}
     
     void Update()
     {
-        // Only check if scenario is NOT already completed
         if (!scenarioCompleted)
         {
             CheckScenarioCompletion();
@@ -80,35 +86,43 @@ public class TrainingFlowManager : MonoBehaviour
     void StartScenario(TrainingScenario scenario)
     {
         currentScenario = scenario;
-        scenarioCompleted = false; // Reset flag for new scenario
+        scenarioCompleted = false;
         
         // Disable all areas
         if (ppeArea != null) ppeArea.SetActive(false);
         if (fireArea != null) fireArea.SetActive(false);
         if (quizArea != null) quizArea.SetActive(false);
+        if (chemExperimentArea != null) chemExperimentArea.SetActive(false);  // NEW
         
-        // Enable current scenario
         switch (scenario)
         {
             case TrainingScenario.PPE:
                 if (ppeArea != null) ppeArea.SetActive(true);
-                UpdateInstructions("Scenario 1/3: Put on all PPE equipment");
+                UpdateInstructions("Scenario 1/4: Put on all PPE equipment");
                 UpdateProgress("Progress: PPE Safety");
                 Debug.Log("=== PPE SCENARIO STARTED ===");
                 break;
                 
             case TrainingScenario.FireExtinguisher:
                 if (fireArea != null) fireArea.SetActive(true);
-                UpdateInstructions("Scenario 2/3: Extinguish the fire");
+                UpdateInstructions("Scenario 2/4: Extinguish the fire");
                 UpdateProgress("Progress: Fire Safety");
                 Debug.Log("=== FIRE EXTINGUISHER SCENARIO STARTED ===");
                 break;
                 
             case TrainingScenario.HazardQuiz:
                 if (quizArea != null) quizArea.SetActive(true);
-                UpdateInstructions("Scenario 3/3: Identify all hazardous chemicals");
+                UpdateInstructions("Scenario 3/4: Identify all hazardous chemicals");
                 UpdateProgress("Progress: Hazard Recognition");
                 Debug.Log("=== HAZARD QUIZ SCENARIO STARTED ===");
+                break;
+
+            case TrainingScenario.ChemicalExperiment:
+                // NEW: Enable chemical experiment area
+                if (chemExperimentArea != null) chemExperimentArea.SetActive(true);
+                UpdateInstructions("Scenario 4/4: Mix chemicals safely!");
+                UpdateProgress("Progress: Chemical Safety");
+                Debug.Log("=== CHEMICAL EXPERIMENT SCENARIO STARTED ===");
                 break;
                 
             case TrainingScenario.Complete:
@@ -130,7 +144,6 @@ public class TrainingFlowManager : MonoBehaviour
                 break;
                 
             case TrainingScenario.FireExtinguisher:
-                // Check if fire is extinguished
                 FireController fire = FindObjectOfType<FireController>();
                 if (fire != null && fire.isExtinguished)
                 {
@@ -139,8 +152,18 @@ public class TrainingFlowManager : MonoBehaviour
                 break;
                 
             case TrainingScenario.HazardQuiz:
-                // Check if quiz is complete
-                if (hazardQuiz != null && hazardQuiz.currentQuestionIndex >= hazardQuiz.questions.Length)
+                if (hazardQuiz != null && 
+                    hazardQuiz.currentQuestionIndex >= hazardQuiz.questions.Length)
+                {
+                    CompleteCurrentScenario();
+                }
+                break;
+
+            case TrainingScenario.ChemicalExperiment:
+                // NEW: Check if experiment is complete
+                // Experiment is complete when player has done at least one reaction
+                if (experimentUIManager != null && 
+                    experimentUIManager.experimentCompleted)
                 {
                     CompleteCurrentScenario();
                 }
@@ -150,16 +173,14 @@ public class TrainingFlowManager : MonoBehaviour
     
     void CompleteCurrentScenario()
     {
-        if (scenarioCompleted) return; // Already completed, don't run again
+        if (scenarioCompleted) return;
         
-        scenarioCompleted = true; // Mark as completed
+        scenarioCompleted = true;
         
         Debug.Log($"✅ {currentScenario} scenario complete!");
         
-        // Add score for this scenario (only once)
         AddScoreForScenario(currentScenario);
         
-        // Show completion message
         string completionMessage = "";
         switch (currentScenario)
         {
@@ -170,13 +191,14 @@ public class TrainingFlowManager : MonoBehaviour
                 completionMessage = "✓ Fire Safety Complete! Moving to Hazard Quiz...";
                 break;
             case TrainingScenario.HazardQuiz:
-                completionMessage = "✓ Quiz Complete! Finishing training...";
+                completionMessage = "✓ Quiz Complete! Moving to Chemical Experiment...";
+                break;
+            case TrainingScenario.ChemicalExperiment:
+                completionMessage = "✓ Chemical Experiment Complete! Finishing training...";
                 break;
         }
         
         UpdateInstructions(completionMessage);
-        
-        // Wait 3 seconds before moving to next scenario
         Invoke("NextScenario", 3f);
     }
     
@@ -209,6 +231,15 @@ public class TrainingFlowManager : MonoBehaviour
                     hasAddedQuizScore = true;
                 }
                 break;
+
+            case TrainingScenario.ChemicalExperiment:
+                // NEW: 50 points for completing chemical experiment
+                if (!hasAddedChemScore)
+                {
+                    scoreToAdd = 50;
+                    hasAddedChemScore = true;
+                }
+                break;
         }
         
         if (scoreToAdd > 0)
@@ -220,7 +251,6 @@ public class TrainingFlowManager : MonoBehaviour
     
     void NextScenario()
     {
-        // Move to next scenario
         currentScenario++;
         
         if (currentScenario > TrainingScenario.Complete)
@@ -235,18 +265,14 @@ public class TrainingFlowManager : MonoBehaviour
     void UpdateInstructions(string text)
     {
         if (instructionText != null)
-        {
             instructionText.text = text;
-        }
         Debug.Log("Instructions: " + text);
     }
     
     void UpdateProgress(string text)
     {
         if (progressText != null)
-        {
             progressText.text = text;
-        }
         Debug.Log("Progress: " + text);
     }
     
@@ -255,18 +281,18 @@ public class TrainingFlowManager : MonoBehaviour
         Debug.Log("🎉 === TRAINING COMPLETE === 🎉");
         
         UpdateInstructions("🎉 TRAINING COMPLETE! 🎉");
-        
-        string progressMessage = $"All scenarios finished!\nTotal Score: {totalScore}/160";
+
+        // Updated total score from 160 to 210
+        string progressMessage = $"All scenarios finished!\nTotal Score: {totalScore}/210";
         UpdateProgress(progressMessage);
         
-        Debug.Log($"Final Score: {totalScore}/160");
+        Debug.Log($"Final Score: {totalScore}/210");
         
-        // Disable all scenario areas
         if (ppeArea != null) ppeArea.SetActive(false);
         if (fireArea != null) fireArea.SetActive(false);
         if (quizArea != null) quizArea.SetActive(false);
+        if (chemExperimentArea != null) chemExperimentArea.SetActive(false);  // NEW
         
-        // Return to menu after delay
         Invoke("ReturnToMenu", 5f);
     }
     

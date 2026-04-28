@@ -3,9 +3,6 @@ using UnityEngine.SceneManagement;
 
 public class SceneController : MonoBehaviour
 {
-    // NO Awake() function!
-    // NO DontDestroyOnLoad!
-    
     public void LoadLaboratoryScene()
     {
         Debug.Log("Loading Laboratory Scene");
@@ -38,6 +35,15 @@ public class SceneController : MonoBehaviour
     {
         Debug.Log("Loading Scenario 3 (Hazard Quiz)");
         PlayerPrefs.SetInt("StartScenario", 3);
+        PlayerPrefs.Save();
+        SceneManager.LoadScene("LaboratoryScene");
+    }
+
+    // NEW: Load Scenario 4 (Chemical Experiment)
+    public void LoadScenario4()
+    {
+        Debug.Log("Loading Scenario 4 (Chemical Experiment)");
+        PlayerPrefs.SetInt("StartScenario", 4);
         PlayerPrefs.Save();
         SceneManager.LoadScene("LaboratoryScene");
     }
